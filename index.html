@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IIT (BHU) Campus Satellite Map</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #05070c;
+    }
+
+    #map {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Perimeter Pins */
+    .custom-pin {
+      width: 14px;
+      height: 14px;
+      background: #f59e0b;
+      border: 2px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.8);
+      animation: pulse 2s infinite;
+    }
+
+    /* Named Marker Pins */
+    .named-pin {
+      width: 22px;
+      height: 22px;
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 18px rgba(255, 255, 255, 0.9);
+      animation: pulse 2s infinite;
+    }
+
+    .named-pin.gate { background: #ef4444; }
+    .named-pin.sac { background: #3b82f6; }
+    .named-pin.rajputana { background: #10b981; }
+    .named-pin.gymkhana { background: #8b5cf6; }
+    .named-pin.adv { background: #06b6d4; }
+    .named-pin.lt3 { background: #f43f5e; }
+    .named-pin.lt1 { background: #eab308; }
+    .named-pin.lt2 { background: #f97316; }
+    .named-pin.cse { background: #0284c7; }
+    .named-pin.mnc { background: #10b981; }
+    .named-pin.elec { background: #a855f7; }
+    .named-pin.ece { background: #ec4899; }
+    .named-pin.vt { background: #f59e0b; }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+      70% { box-shadow: 0 0 0 12px rgba(255, 255, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+    }
+
+    /* High-Contrast Large Label Badges */
+    .map-badge-label {
+      background: #000000 !important; /* Solid dark background */
+      border: 2px solid #ffffff !important;
+      color: #ffffff !important;
+      font-size: 15px !important; /* High readability text */
+      font-weight: 900 !important;
+      letter-spacing: 0.5px !important;
+      padding: 8px 14px !important;
+      border-radius: 10px !important;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.95), 0 0 10px rgba(0,0,0,0.8) !important;
+      white-space: nowrap !important;
+      text-transform: uppercase !important;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.9) !important;
+    }
+
+    /* Custom Accent Colors per Label */
+    .map-badge-label.gate { border-color: #ef4444 !important; color: #ff8080 !important; }
+    .map-badge-label.sac { border-color: #3b82f6 !important; color: #93c5fd !important; }
+    .map-badge-label.rajputana { border-color: #10b981 !important; color: #6ee7b7 !important; }
+    .map-badge-label.gymkhana { border-color: #8b5cf6 !important; color: #c4b5fd !important; }
+    .map-badge-label.adv { border-color: #06b6d4 !important; color: #67e8f9 !important; }
+    .map-badge-label.lt3 { border-color: #f43f5e !important; color: #fda4af !important; }
+    .map-badge-label.lt1 { border-color: #eab308 !important; color: #fef08a !important; }
+    .map-badge-label.lt2 { border-color: #f97316 !important; color: #fed7aa !important; }
+    .map-badge-label.cse { border-color: #0284c7 !important; color: #38bdf8 !important; }
+    .map-badge-label.mnc { border-color: #10b981 !important; color: #6ee7b7 !important; }
+    .map-badge-label.elec { border-color: #a855f7 !important; color: #e9d5ff !important; }
+    .map-badge-label.ece { border-color: #ec4899 !important; color: #fbcfe8 !important; }
+    .map-badge-label.vt { border-color: #f59e0b !important; color: #fde68a !important; }
+  </style>
+</head>
+<body>
+
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // 16 Campus Perimeter Coordinates
+    const campusPerimeter = [
+      [25.266265, 82.982313],
+      [25.267858, 82.990623],
+      [25.266579, 82.993425],
+      [25.263474, 82.992773],
+      [25.263722, 82.996193],
+      [25.262491, 82.996504],
+      [25.261647, 82.996983],
+      [25.259000, 82.995136],
+      [25.256886, 82.993208],
+      [25.258225, 82.991835],
+      [25.256401, 82.989271],
+      [25.258516, 82.987887],
+      [25.257187, 82.984904],
+      [25.259890, 82.983775],
+      [25.259502, 82.981758],
+      [25.262938, 82.981827]
+    ];
+
+    // 6 Boundary Coordinates for Rajputana Ground
+    const rajputanaCoords = [
+      [25.262969, 82.987175],
+      [25.261928, 82.987289],
+      [25.261856, 82.986951],
+      [25.260893, 82.987163],
+      [25.261288, 82.988819],
+      [25.263077, 82.988292]
+    ];
+
+    // 4 Boundary Coordinates for Gymkhana Ground
+    const gymkhanaCoords = [
+      [25.260698, 82.987321],
+      [25.258804, 82.988065],
+      [25.259902, 82.990538],
+      [25.261315, 82.989901]
+    ];
+
+    // 4 Boundary Coordinates for ADV Ground
+    const advCoords = [
+      [25.258536, 82.988042],
+      [25.256491, 82.989443],
+      [25.258208, 82.991754],
+      [25.259663, 82.990677]
+    ];
+
+    // 4 Boundary Coordinates for LT-3
+    const lt3Coords = [
+      [25.258816, 82.992266],
+      [25.259112, 82.992694],
+      [25.258861, 82.992947],
+      [25.258559, 82.992491]
+    ];
+
+    // 4 Boundary Coordinates for LT-1
+    const lt1Coords = [
+      [25.260316, 82.990732],
+      [25.260415, 82.991194],
+      [25.260262, 82.991240],
+      [25.260105, 82.990787]
+    ];
+
+    // 4 Boundary Coordinates for LT-2
+    const lt2Coords = [
+      [25.262088, 82.993660],
+      [25.262164, 82.993958],
+      [25.261877, 82.994074],
+      [25.261770067903935, 82.99376178151375]
+    ];
+
+    // 4 Boundary Coordinates for CSE Dept
+    const cseCoords = [
+      [25.262597, 82.993213],
+      [25.262631049743423, 82.9933908279121],
+      [25.262123343976103, 82.99360704123647],
+      [25.26204787401865, 82.99337755165533]
+    ];
+
+    // 4 Boundary Coordinates for MNC Dept
+    const mncCoords = [
+      [25.261986125836735, 82.9934154838175],
+      [25.262032436976103, 82.99358428193916],
+      [25.261701397699166, 82.99371704450836],
+      [25.261646510271273, 82.99354824638668]
+    ];
+
+    // 4 Boundary Coordinates for Electrical Dept
+    const elecCoords = [
+      [25.26149852459652, 82.9925702183574],
+      [25.26189372364088, 82.9924553890883],
+      [25.261801414490193, 82.9921268497906],
+      [25.26138469590321, 82.99223637758664]
+    ];
+
+    // 4 Boundary Coordinates for Electronics Dept
+    const eceCoords = [
+      [25.263078345850353, 82.98998959940263],
+      [25.263223167492082, 82.99074066753506],
+      [25.262807059774925, 82.9909008051849],
+      [25.262625522137796, 82.99012041607433]
+    ];
+
+    // 4 Boundary Coordinates for SAC (Student Activity Centre)
+    const sacCoords = [
+      [25.26292177616015, 82.98675472316458],
+      [25.262958491569638, 82.98707725392414],
+      [25.26197737042278, 82.98725092433315],
+      [25.261930455907354, 82.9868855398363]
+    ];
+
+    // Initialize Leaflet Map
+    const map = L.map('map', { zoomControl: true });
+
+    // Satellite Tile Layer
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Esri Satellite'
+    }).addTo(map);
+
+    // Dark Overlay Mask Outside Perimeter
+    const outerBounds = [
+      [90, -180],
+      [90, 180],
+      [-90, 180],
+      [-90, -180]
+    ];
+
+    L.polygon([outerBounds, campusPerimeter], {
+      color: 'transparent',
+      fillColor: '#05070c',
+      fillOpacity: 0.95,
+      interactive: false
+    }).addTo(map);
+
+    // Glowing Campus Perimeter Boundary Line
+    const campusPoly = L.polygon(campusPerimeter, {
+      color: '#f59e0b',
+      weight: 3,
+      fillColor: '#f59e0b',
+      fillOpacity: 0.05,
+      dashArray: '6, 6'
+    }).addTo(map);
+
+    map.fitBounds(campusPoly.getBounds(), { padding: [30, 30] });
+
+    // Perimeter Pins
+    campusPerimeter.forEach(coord => {
+      const pinIcon = L.divIcon({
+        className: 'custom-pin',
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+      });
+      L.marker(coord, { icon: pinIcon }).addTo(map);
+    });
+
+    // 1. Rajputana Ground Polygon & Label
+    L.polygon(rajputanaCoords, {
+      color: '#10b981',
+      weight: 3,
+      fillColor: '#10b981',
+      fillOpacity: 0.35
+    }).addTo(map);
+
+    const rajCenter = [25.262002, 82.987615];
+    L.marker(rajCenter, {
+      icon: L.divIcon({ className: 'named-pin rajputana', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(rajCenter, {
+      icon: L.divIcon({ className: 'map-badge-label rajputana', html: 'RAJPUTANA GROUND', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 2. Gymkhana Ground Polygon & Label
+    L.polygon(gymkhanaCoords, {
+      color: '#8b5cf6',
+      weight: 3,
+      fillColor: '#8b5cf6',
+      fillOpacity: 0.35
+    }).addTo(map);
+
+    const gymCenter = [25.260204, 82.988930];
+    L.marker(gymCenter, {
+      icon: L.divIcon({ className: 'named-pin gymkhana', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(gymCenter, {
+      icon: L.divIcon({ className: 'map-badge-label gymkhana', html: 'GYMKHANA GROUND', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 3. ADV Ground Polygon & Label
+    L.polygon(advCoords, {
+      color: '#06b6d4',
+      weight: 3,
+      fillColor: '#06b6d4',
+      fillOpacity: 0.35
+    }).addTo(map);
+
+    const advCenter = [25.258537, 82.990108];
+    L.marker(advCenter, {
+      icon: L.divIcon({ className: 'named-pin adv', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(advCenter, {
+      icon: L.divIcon({ className: 'map-badge-label adv', html: 'ADV GROUND', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 4. LT-3 Building Polygon & Label
+    L.polygon(lt3Coords, {
+      color: '#f43f5e',
+      weight: 3,
+      fillColor: '#f43f5e',
+      fillOpacity: 0.45
+    }).addTo(map);
+
+    const lt3Center = [25.258837, 82.992600];
+    L.marker(lt3Center, {
+      icon: L.divIcon({ className: 'named-pin lt3', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(lt3Center, {
+      icon: L.divIcon({ className: 'map-badge-label lt3', html: 'LT-3', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 5. LT-1 Building Polygon & Label
+    L.polygon(lt1Coords, {
+      color: '#eab308',
+      weight: 3,
+      fillColor: '#eab308',
+      fillOpacity: 0.45
+    }).addTo(map);
+
+    const lt1Center = [25.2602745, 82.99098825];
+    L.marker(lt1Center, {
+      icon: L.divIcon({ className: 'named-pin lt1', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(lt1Center, {
+      icon: L.divIcon({ className: 'map-badge-label lt1', html: 'LT-1', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 6. LT-2 Building Polygon & Label
+    L.polygon(lt2Coords, {
+      color: '#f97316',
+      weight: 3,
+      fillColor: '#f97316',
+      fillOpacity: 0.45
+    }).addTo(map);
+
+    const lt2Center = [25.261975, 82.9938635];
+    L.marker(lt2Center, {
+      icon: L.divIcon({ className: 'named-pin lt2', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(lt2Center, {
+      icon: L.divIcon({ className: 'map-badge-label lt2', html: 'LT-2', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 7. CSE Dept Building Polygon & Label
+    L.polygon(cseCoords, {
+      color: '#0284c7',
+      weight: 3,
+      fillColor: '#0284c7',
+      fillOpacity: 0.45
+    }).addTo(map);
+
+    const cseCenter = [25.262350, 82.993397];
+    L.marker(cseCenter, {
+      icon: L.divIcon({ className: 'named-pin cse', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(cseCenter, {
+      icon: L.divIcon({ className: 'map-badge-label cse', html: 'CSE DEPT', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 8. MNC Dept Building Polygon & Label
+    L.polygon(mncCoords, {
+      color: '#10b981',
+      weight: 3,
+      fillColor: '#10b981',
+      fillOpacity: 0.45
+    }).addTo(map);
+
+    const mncCenter = [25.26184161, 82.99356626];
+    L.marker(mncCenter, {
+      icon: L.divIcon({ className: 'named-pin mnc', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(mncCenter, {
+      icon: L.divIcon({ className: 'map-badge-label mnc', html: 'MNC DEPT', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 9. Electrical Dept Building Polygon & Label
+    L.polygon(elecCoords, {
+      color: '#a855f7',
+      weight: 3,
+      fillColor: '#a855f7',
+      fillOpacity: 0.45
+    }).addTo(map);
+
+    const elecCenter = [25.26164459, 82.99234721];
+    L.marker(elecCenter, {
+      icon: L.divIcon({ className: 'named-pin elec', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(elecCenter, {
+      icon: L.divIcon({ className: 'map-badge-label elec', html: 'ELECTRICAL DEPT', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 10. Electronics Dept Building Polygon & Label
+    L.polygon(eceCoords, {
+      color: '#ec4899',
+      weight: 3,
+      fillColor: '#ec4899',
+      fillOpacity: 0.45
+    }).addTo(map);
+
+    const eceCenter = [25.26293352, 82.99043787];
+    L.marker(eceCenter, {
+      icon: L.divIcon({ className: 'named-pin ece', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(eceCenter, {
+      icon: L.divIcon({ className: 'map-badge-label ece', html: 'ELECTRONICS DEPT', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 11. SAC Building Polygon & Label
+    L.polygon(sacCoords, {
+      color: '#3b82f6',
+      weight: 3,
+      fillColor: '#3b82f6',
+      fillOpacity: 0.45
+    }).addTo(map);
+
+    const sacCenter = [25.262447, 82.986992];
+    L.marker(sacCenter, {
+      icon: L.divIcon({ className: 'named-pin sac', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(sacCenter, {
+      icon: L.divIcon({ className: 'map-badge-label sac', html: 'SAC (STUDENT ACTIVITY CENTRE)', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 12. Vishwanath Temple Marker & Label
+    const vtCoord = [25.265914421933257, 82.98792017855357];
+    L.marker(vtCoord, {
+      icon: L.divIcon({ className: 'named-pin vt', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(vtCoord, {
+      icon: L.divIcon({ className: 'map-badge-label vt', html: 'VISHWANATH TEMPLE', iconAnchor: [-16, 12] })
+    }).addTo(map);
+
+    // 13. Hyderabad Gate Marker & Label
+    const hydCoord = [25.262958, 82.981820];
+    L.marker(hydCoord, {
+      icon: L.divIcon({ className: 'named-pin gate', iconSize: [22, 22], iconAnchor: [11, 11] })
+    }).addTo(map);
+
+    L.marker(hydCoord, {
+      icon: L.divIcon({ className: 'map-badge-label gate', html: 'HYDERABAD GATE', iconAnchor: [-16, 12] })
+    }).addTo(map);
+  </script>
+</body>
+</html>
